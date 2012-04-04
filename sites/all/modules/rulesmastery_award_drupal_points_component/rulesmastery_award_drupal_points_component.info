@@ -1,0 +1,7 @@
+name = "Rules Mastery: award Drupal points component"
+description = "An export of the kind of critical component that awards Drupal points to users."
+core = "7.x"
+package = "Features"
+dependencies[] = "rules"
+dependencies[] = "rulesmastery_start_setup"
+features[rules_config][] = "rules_award_drupal_points"

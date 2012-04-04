@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Rules Mastery: base for VBO feature.
+ */
+
+include_once('rulesmastery_base_for_vbo.features.inc');

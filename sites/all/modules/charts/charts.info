@@ -1,0 +1,16 @@
+core            = "7.x"
+description     = "Transform DATA into INFORMATION using beautiful CHARTS."
+files[]         = charts.module
+files[]         = charts.admin.inc
+files[]         = charts.inc
+files[]         = charts.hooks.inc
+files[]         = charts.install
+name            = "Charts"
+package         = "Charts"
+php             = 5.2
+; Information added by drupal.org packaging script on 2011-02-25
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "charts"
+datestamp = "1298618955"
+

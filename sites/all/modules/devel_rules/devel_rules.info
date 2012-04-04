@@ -1,0 +1,7 @@
+name = Devel Rules
+description = Some developing tools when writing Rules modules.
+package = Development
+core = 7.x
+configure = admin/config/workflow/rules/devel
+dependencies[] = devel
+dependencies[] = rules_admin

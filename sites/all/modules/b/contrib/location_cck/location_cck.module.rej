@@ -1,0 +1,28 @@
+--- a/contrib/location_cck/location_cck.module
++++ b/contrib/location_cck/location_cck.module
+@@ -160,9 +160,11 @@
+         'vid' => $entity->vid,
+         'nid' => $entity->nid,
+       );
+-      location_save_locations($items, $criteria);
+     }
++  } elseif ($entity_type == 'user' || $entity_type == 'profile2') {
++    $criteria = array('uid' => $entity->uid);
+   }
++  location_save_locations($items, $criteria);
+ }
+ 
+ /**
+@@ -178,9 +180,11 @@
+         'vid' => $entity->vid,
+         'nid' => $entity->nid,
+       );
+-      location_save_locations($items, $criteria);
+     }
++  } elseif ($entity_type == 'user' || $entity_type == 'profile2') {
++    $criteria = array('uid'=>$entity->uid);
+   }
++  location_save_locations($items, $criteria);
+ }
+ 
+ /**

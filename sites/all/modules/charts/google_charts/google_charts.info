@@ -1,0 +1,14 @@
+core            = "7.x"
+dependencies[]  = charts
+description     = "Use Google Charts on your site."
+files[]         = google_charts.inc
+files[]         = google_charts.hooks.inc
+name            = "Google"
+package         = "Charts"
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "charts"
+datestamp = "1298618955"
+

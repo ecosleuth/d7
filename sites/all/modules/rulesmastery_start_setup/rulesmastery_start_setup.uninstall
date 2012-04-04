@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * @file
+ * Removes the variable set by this module. (Note that there are also a ton of
+ * uninstall things managed by Features.)
+ */
+
+function rulesmastery_start_setyp_uninstall() {
+variable_del('rulesmastery_levels');
+}

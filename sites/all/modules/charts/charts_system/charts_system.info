@@ -1,0 +1,14 @@
+core            = "7.x"
+dependencies[]  = charts
+description     = "Use Charts for Drupal administration"
+files[]         = charts_system.inc
+files[]         = charts_system.hooks.inc
+name            = "Charts System"
+package         = "Charts"
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "charts"
+datestamp = "1298618955"
+

@@ -1,0 +1,17 @@
+name = SoundManager 2
+core = 7.x
+description = Adds support for using the <a href="http://www.schillmania.com/projects/soundmanager2/">SoundManager 2</a> Player.
+package = Other
+
+files[] = soundmanager2.module
+files[] = soundmanager2.install
+
+configure = admin/config/media/soundmanager2
+
+
+; Information added by drupal.org packaging script on 2011-04-28
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "soundmanager2"
+datestamp = "1303951078"
+

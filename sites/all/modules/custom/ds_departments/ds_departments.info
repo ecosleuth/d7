@@ -1,0 +1,11 @@
+name = "DS Departments"
+description = Display colored background using department taxonomy
+core = 7.x
+package = "Dairy Specialists"
+version = 1.0
+dependencies[] = 
+php = 5.3
+configure = admin/config/ds_department 
+
+files[] = ds_department.module
+files[] = ds_department.inc

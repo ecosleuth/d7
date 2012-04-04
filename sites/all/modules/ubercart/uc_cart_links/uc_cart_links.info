@@ -1,0 +1,14 @@
+name = Cart Links
+description = Create specialized links to purchase products from other nodes.
+dependencies[] = uc_cart
+package = Ubercart - extra
+core = 7.x
+configure = admin/store/settings/cart-links
+files[] = tests/uc_cart_links.test
+
+; Information added by drupal.org packaging script on 2011-07-25
+version = "7.x-3.0-beta4"
+core = "7.x"
+project = "ubercart"
+datestamp = "1311619619"
+

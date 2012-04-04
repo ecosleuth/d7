@@ -1,0 +1,51 @@
+<?php
+
+/**
+ * @file
+ * Install / Uninstall file for Upload Nodes.
+ */
+
+
+/**
+ * Implements hook_install().
+ */
+
+function upload_nodes_install() {
+  variable_set('upload_nodes_targets', array());
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+
+function upload_nodes_uninstall() {
+  variable_del('upload_nodes_targets');
+}
+
+/**
+ * Implements hook_schema().
+ */
+
+function upload_nodes_schema() {
+  $schema['upload_nodes_nodes_to_edit'] = array(
+    'description' => t('List of nodes created by upload_nodes that needs to be edited.'),
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'length' => '10',
+        'not null' => TRUE,
+        'description' => t('Node ID of an inserted node.'),
+        'no export' => TRUE,
+      ),
+      'sid' => array(
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => TRUE,
+        'description' => t('Session ID that inserted nodes.'),
+        'no export' => TRUE,
+      ),
+    ),
+  );
+  return $schema;
+}
+

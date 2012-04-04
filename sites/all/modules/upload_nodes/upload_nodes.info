@@ -1,0 +1,11 @@
+name = Upload nodes
+description = Experimental module
+core = 7.x
+
+package = Media
+dependencies[] = plupload
+
+files[] = upload_nodes.module
+files[] = upload_nodes.install
+files[] = upload_nodes_admin.inc
+

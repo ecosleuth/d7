@@ -1,0 +1,141 @@
+<?php
+/**
+ * @file
+ * Code for the Rules Mastery start setup feature.
+ */
+
+include_once('rulesmastery_start_setup.features.inc');
+
+/**
+ * Implements hook_menu().
+ */
+function rulesmastery_start_setup_menu() {
+  $items['admin/config/workflow/rulesmastery'] = array(
+    'title' => 'Drupal points',
+    'description' => 'Set the seven levels of Drupal points.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rulesmastery_level_setup'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer drupal points'),
+    'menu_name' => 'management',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function rulesmastery_start_setup_permission() {
+  return array(
+    'administer drupal points' => array(
+      'title' => t('Administer Drupal points'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Removes the Drupal points fields for users who shouldn't be able to edit it.
+ */
+function rulesmastery_start_setup_form_user_profile_form_alter(&$form, &$form_state) {
+  // Verify that the field for Drupal points is present.
+  if (isset($form['field_user_drupalpoints'])) {
+    // Block the field, unless the user is allowed to administer Drupal points.
+    if (!user_access('administer drupal points')) {
+      $form['field_user_drupalpoints']['#access'] = FALSE;
+    }
+  }
+}
+
+/**
+ * The admin page for Drupal points.
+ */
+function rulesmastery_level_setup() {
+  define('RULESMASTERY_NUMBER_OF_LEVELS', 7);
+
+  // Load default values for the configuration.
+  $defaults = rulesmastery_get_levels();
+
+  // Build the form.
+  $levels = range(1, RULESMASTERY_NUMBER_OF_LEVELS);
+  $form['level'] = array(
+    '#tree' => TRUE,
+  );
+  foreach ($levels as $level) {
+    $form['level'][$level] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Level @level', array('@level' => $level)),
+      '#tree' => TRUE,
+      'limit' => array(
+        '#type' => 'textfield',
+        '#title' => t('Point limit'),
+        '#default_value' => isset($defaults[$level]['limit']) ? $defaults[$level]['limit'] : $level * 50,
+      ),
+      'role' => array(
+        '#type' => 'select',
+        '#title' => t('Roles'),
+        '#options' => user_roles(TRUE),
+        '#multiple' => TRUE,
+        '#default_value' => isset($defaults[$level]['role']) ? $defaults[$level]['role'] : NULL,
+      ),
+    );
+  }
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save')
+  );
+
+  return $form;
+}
+
+/**
+ * Submit function for the Drupal points level setup page.
+ */
+function rulesmastery_level_setup_submit($form, $form_state) {
+  // Dig out the point limit and role configuration.
+  $config = array();
+  foreach ($form_state['input']['level'] as $level => $level_config) {
+    $config[$level] = array(
+      // Make sure the limit is interpreted as an integer.
+      'limit' => (int) $level_config['limit'],
+      'role' => $level_config['role'],
+    );
+  }
+
+  // Save the configuration. Kept in a separate function for cleaner API.
+  rulesmastery_set_levels($config);
+}
+
+/**
+ * Saves configuration for Drupal point levels and roles.
+ *
+ * @param $config
+ *   An array with leveling data. The array values are arrays with keys 'role'
+ *   and 'limit', each being an integer describing the role awarded for the
+ *   specified number of Drupal points.
+ */
+function rulesmastery_set_levels(array $config) {
+  variable_set('rulesmastery_levels', $config);
+}
+
+/**
+ * Gets the configuration for Drupal point levels and roles.
+ *
+ * @return array
+ *   An array where each value is an array with the keys 'role' and 'limit',
+ *   describing the role awarded when reaching a certain level of Drupal points.
+ */
+function rulesmastery_get_levels() {
+  // Fetch any stored configuration.
+  $level_config = variable_get('rulesmastery_levels', array());
+
+  foreach ($level_config as &$level) {
+    $level['role'] = $level['role'];
+    // Make sure the stored limit is of the right type. Just in case.
+    $level['limit'] = (int) $level['limit'];
+  }
+
+  return $level_config;
+}

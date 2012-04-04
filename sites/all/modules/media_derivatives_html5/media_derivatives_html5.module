@@ -1,0 +1,87 @@
+<?php
+/**
+ * @file
+ * Code for the Media derivatives HTML5 feature.
+ */
+
+include_once('media_derivatives_html5.features.inc');
+
+function media_derivatives_html5_file_formatter_info() {
+  $formatters = array();
+
+  $formatters['html5_video'] = array(
+    'label' => t('HTML5 video'),
+    'default settings' => array(
+      'width' => 320,
+      'height' => 240,
+      'derivatives' => array(),
+    ),
+    'view callback' => 'media_derivatives_html5_file_formatter_html5_video_view',
+    'settings callback' => 'media_derivatives_html5_file_formatter_html5_video_settings',
+  );
+
+  return $formatters;
+}
+
+function media_derivatives_html5_file_formatter_html5_video_view($file, $display, $langcode) {
+  if ($file->type == 'video') {
+    $markup = '<video width="' . $display['settings']['width'] . '" height="' . $display['settings']['height'] . '" controls="controls">';
+    
+    $derivatives = array_values(array_filter($display['settings']['derivatives']));
+    $der_file = new stdClass;
+    foreach ($derivatives as $derivative) {
+      if (isset($file->media_derivatives['derivatives_list'][$derivative])) {
+        
+        // Handle managed derivatives ...
+        if ($file->media_derivatives['derivatives_list'][$derivative]->preset->settings['type'] == MEDIA_DERIVATIVE_FILE_TYPE_MANAGED) {
+          $der_file = file_load($file->media_derivatives['derivatives_list'][$derivative]->derivative_fid);
+        }
+
+        // ... and also unmanaged.
+        else {
+          $der_file->uri = $file->media_derivatives['derivatives_list'][$derivative]->unmanaged_uri;
+          $der_file->filemime = file_get_mimetype($der_file->uri);
+        }
+
+        $markup .= '<source src="' . file_create_url($der_file->uri) . '" type="' . $der_file->filemime . '" />';
+
+      }
+    }
+    
+    $markup .= l($file->filename, file_create_url($file->uri), array('attributes' => array('title' => $file->filename)));
+    
+    $markup .= '</video>';
+    
+    return array(
+     '#markup' => $markup,
+    );
+  }
+}
+
+function media_derivatives_html5_file_formatter_html5_video_settings($form, &$form_state, $settings) {
+  $options = array();
+  $presets = media_derivatives_get_presets();
+  foreach ($presets as $name => $item) {
+    $options[$name] = $name;
+  }
+
+  $elements = array();
+  $elements['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#default_value' => $settings['width'],
+  );
+  $elements['height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#default_value' => $settings['height'],
+  );
+  $elements['derivatives'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Files'),
+    '#options' => $options,
+    '#default_value' => $settings['derivatives'],
+  );
+  
+  return $elements;
+}

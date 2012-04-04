@@ -1,0 +1,23 @@
+<?php
+/**
+ * @author Bruno Massa http://drupal.org/user/67164
+ * @file
+ * Transform DATA into INFORMATION using beautiful CHARTS.
+ *
+ * @note For instructions about the API, see chart_api.txt file.
+ */
+
+/**
+ * The main Chart API function, that calls any chart provider
+ * to print the given data.
+ *
+ * @param &$data
+ *   Array. The chart data, described on chart_api.txt
+ * @return
+ *   String. The HTML with the propper chart (might include Flash or
+ *   JavaScript external files)
+ */
+function charts_chart(&$data) {
+  module_load_include('inc', 'charts');
+  return _charts_chart($data);
+}

@@ -1,0 +1,777 @@
+<?php
+
+// @todo: find the proper way to include that file.
+include('modules/node/node.pages.inc'); // For node_form use.
+
+/*****************************************************************************/
+/* Private functions - Manage targets list                                   */
+/*****************************************************************************/
+
+/**
+ * Returns the list of field/type targets that can be managed by upload_nodes
+ */
+
+function _upload_nodes_get_manageable_targets() {
+
+  $fields = array();
+
+  foreach (node_type_get_types() as $node_type) {
+    $field_info_instances = field_info_instances('node', $node_type->type);
+    foreach ($field_info_instances as $field_info_instance) {
+      $field_info = field_info_field($field_info_instance['field_name']);
+      // TODO: Find a clever way to select field types
+      if ($field_info['type'] == 'image' or
+          $field_info['type'] == 'file') {
+        $key = $node_type->type . '/' . $field_info_instance['field_name'];
+        $targets[$key] = array(
+          'key'         => $key,
+          'entity_type' => 'node',
+          'type_name'   => $node_type->type,
+          'type_label'  => $node_type->name,
+          'field_name'  => $field_info_instance['field_name'],
+          'field_label' => $field_info_instance['label'],
+          'field_type'  => $field_info['type'],
+        );
+      }
+    }
+  }
+  return $targets;
+}
+
+/**
+ * Return fields managed by upload nodes
+ */
+
+function _upload_nodes_get_managed_targets() {
+  return variable_get('upload_nodes_targets');
+}
+
+/**
+ * Retrieve the settings for a type/field pair or return FALSE if not found
+ */
+
+function _upload_nodes_get_target($type_name, $field_name) {
+  $targets = _upload_nodes_get_managed_targets();
+
+  if (!isset($targets[$type_name . '/' . $field_name]))
+    return FALSE;
+
+  return $targets[$type_name . '/' . $field_name];
+}
+
+/**
+ * Do what is to be done in case of targets change
+ */
+
+function _upload_nodes_targets_changed() {
+  menu_rebuild();
+}
+
+/**
+ * Returns the base url correspondig to a target
+ */
+
+function _upload_nodes_base_url($target) {
+  return join('/', array('upload_nodes',
+    $target['type_name'], $target['field_name']));
+}
+
+/**
+ * Rebuild targets list in case of content type change
+ */
+
+function _upload_nodes_rebuild_targets() {
+  $manageable_targets = _upload_nodes_get_manageable_targets();
+  $managed_targets = _upload_nodes_get_managed_targets();
+
+  $targets = array();
+
+  // Rebuild targets from manageable targets + specific settings
+  foreach ($managed_targets as $key => $managed_target) {
+    if (isset($manageable_targets[$key])) {
+      $targets[$key] = $manageable_targets[$key];
+      if (isset($managed_target['settings']))
+        $targets[$key]['settings'] = $managed_target['settings'];
+    }
+  }
+
+  variable_set('upload_nodes_targets', $targets);
+
+  _upload_nodes_targets_changed();
+}
+
+/*****************************************************************************/
+/* Private functions - Manage "nodes to edit" list                           */
+/*****************************************************************************/
+
+/**
+ * Add a node to the list
+ */
+
+function _upload_nodes_add_node_to_edit($nid) {
+  global $user;
+  db_insert('upload_nodes_nodes_to_edit')
+    ->fields(array('nid' => $nid, 'sid' => $user->sid))->execute();
+}
+
+/**
+ * Remove a node from the list
+ */
+
+function _upload_nodes_remove_node_to_edit($nid) {
+  global $user;
+  db_delete('upload_nodes_nodes_to_edit')
+    ->condition('nid', $nid)->condition('sid', $user->sid)->execute();
+}
+
+/**
+ * Get the next node to edit
+ */
+
+function _upload_nodes_get_next_node_to_edit() {
+  global $user;
+
+  while (TRUE) {
+    $result = db_query_range(
+      'SELECT n.nid FROM {upload_nodes_nodes_to_edit} n WHERE n.sid = :sid order by n.nid',
+      0, 1, array(':sid' => $user->sid))->fetchAssoc();
+
+    // no more node to edit.
+    if (!$result)
+      return NULL;
+
+    // found a loadable node !
+    if ($node = node_load($result['nid']))
+      return $node;
+
+    // node has been deleted ?
+    upload_nodes_remove_node_to_edit($result['nid']);
+  }
+}
+
+/**
+ * Remove nodes from previous submits
+ */
+
+function _upload_nodes_clean_nodes_to_edit() {
+  global $user;
+  db_delete('upload_nodes_nodes_to_edit')
+    ->condition('sid', $user->sid)->execute();
+}
+
+/*****************************************************************************/
+/* Private functions - Other                                                 */
+/*****************************************************************************/
+
+/**
+ * Filter filename to build a node title
+ */
+
+function _upload_nodes_filter_name($name) {
+  return str_ireplace(
+    // @todo: add upload_nodes_title_replacement to configuration
+    explode(';', variable_get('upload_nodes_title_replacements', '.png;.jpg;.jpeg;.gif;_;{;}')),
+    ' ', $name);
+}
+
+/**
+ * Page to redirect to after nodes creations and edits
+ */
+
+function _upload_nodes_get_redirect_page() {
+  return '/'; // TODO: Do something!!
+}
+
+/**
+ * Retrieve or create a file object by its uri
+ */
+
+// Function copied from media module. Not the same as plupload one
+function _upload_nodes_file_uri_to_object($uri, $use_existing = FALSE) {
+  if ($use_existing) {
+    $query = db_select('file_managed', 'f')
+      ->fields('f', array('fid'))
+      ->condition('uri', $uri)
+      ->execute()
+      ->fetchCol();
+    if (!empty($query)) {
+      $file = file_load(array_shift($query));
+    }
+  }
+  if (!isset($file)) {
+    global $user;
+    $uri = file_stream_wrapper_uri_normalize($uri);
+    $wrapper = file_stream_wrapper_get_instance_by_uri($uri);
+    $file = new stdClass;
+    $file->uid = $user->uid;
+    $file->filename = basename($uri);
+    $file->uri = $uri;
+    $file->filemime = file_get_mimetype($uri);
+    // This is gagged because some uris will not support it.
+    $file->filesize = @filesize($uri);
+    $file->timestamp = REQUEST_TIME;
+    $file->status = FILE_STATUS_PERMANENT;
+    $file->is_new = TRUE;
+  }
+  return $file;
+}
+
+/**
+ * Callback for creating dynamic menu titles.
+ */
+function upload_nodes_menu_title_callback($type_label, $field_label) {
+  return t('Upload into !field of !type', 
+    Array('!type' => $type_label, '!field' => $field_label));
+}
+
+/*****************************************************************************/
+/* Hooks implementations                                                     */
+/*****************************************************************************/
+
+/**
+ * Implements hook_theme().
+ */
+
+function upload_nodes_theme($existing, $type, $theme, $path) {
+  return array(
+    'upload_nodes_targets_list' => array(
+      'variables' => array('content' => NULL),
+    ),
+    'upload_nodes_admin_fieldset' => array(
+      'render element' => 'form',
+      'file' => 'upload_nodes.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+
+function upload_nodes_menu() {
+
+  // Main entry point
+
+  $items['upload_nodes'] = array(
+    'title' => 'Upload Nodes',
+    'page callback' => 'upload_nodes_view',
+    'access arguments' => array('upload files'),
+  );
+
+  // Targets
+
+  foreach (_upload_nodes_get_managed_targets() as $target) {
+    $path = _upload_nodes_base_url($target);
+
+    // Upload form
+    $items[$path . '/upload'] = array(
+      'access arguments' => array('create ' . $target['type_name'] . ' content'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upload_nodes_upload_form', 1, 2),
+      'title callback' => 'upload_nodes_menu_title_callback',
+      'title arguments' => array($target['type_label'], $target['field_label']),
+      'description' => 'Create multiple !type nodes uploading files into !field',
+        Array('!type' => $target['type_label'], '!field' => $target['field_label']),
+    );
+
+    // Edit form
+    $items[$path . '/edit'] = array(
+      'access arguments' => array('edit own ' . $target['type_name'] . ' content'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upload_nodes_edit_form', 1, 2),
+      'type' => MENU_CALLBACK,
+    );
+  }
+
+  // Administration links
+
+  $items['admin/config/media/upload-nodes'] = array(
+    'title' => 'Upload Nodes',
+    'description' => 'Upload and create multiple nodes at once.',
+    'access arguments' => array('access content'),
+    'page callback' => 'upload_nodes_admin_view',
+    'file' => 'upload_nodes.admin.inc',
+  );
+  $items['admin/config/media/upload-nodes/%/%/edit'] = array(
+    'access arguments' => array('access content'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('upload_nodes_admin_edit_form', 4, 5),
+    'file' => 'upload_nodes.admin.inc',
+  );
+  $items['admin/config/media/upload-nodes/%/%/enable'] = array(
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'upload_nodes_admin_enable',
+    'page arguments' => array(4, 5),
+    'file' => 'upload_nodes.admin.inc',
+  );
+  $items['admin/config/media/upload-nodes/%/%/disable'] = array(
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'upload_nodes_admin_disable',
+    'page arguments' => array(4, 5),
+    'file' => 'upload_nodes.admin.inc',
+  );
+
+  // Maintenance links
+
+  $items['upload_nodes/clean'] = array(
+    'title' => 'Remove unused files',
+    'access arguments' => array('access content'),
+    'page callback' => 'upload_nodes_clean_files',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_admin_paths().
+ */
+
+function upload_nodes_admin_paths() {
+  $paths = array(
+    'upload_nodes' => TRUE,
+  );
+  return $paths;
+}
+/**
+ * Implements hook_node_type_update().
+ */
+
+function upload_nodes_node_type_update($info) {
+  _upload_nodes_rebuild_targets(); // Keep targets up to date
+}
+
+/**
+ * Implements hook_node_type_delete().
+ */
+
+function upload_nodes_node_type_delete($info) {
+  _upload_nodes_rebuild_targets(); // Keep targets up to date
+}
+
+/**
+ * Implements hook_field_delete_instance().
+ */
+
+function upload_nodes_field_delete_instance($instance) {
+  _upload_nodes_rebuild_targets(); // Keep targets up to date
+}
+
+/**
+ * Implements hook_field_update_instance().
+ */
+
+function upload_nodes_field_update_instance($instance) {
+  _upload_nodes_rebuild_targets(); // Keep targets up to date
+}
+
+/**
+ * Implements hook_field_update_field().
+ */
+
+function upload_nodes_field_update_field($field, $prior_field, $has_data) {
+  _upload_nodes_rebuild_targets(); // Keep targets up to date
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function upload_nodes_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  // Add action link to 'node/add' on 'admin/content' page.
+  if ($root_path == 'admin/content') {
+    $item = menu_get_item('upload_nodes');
+    if ($item['access']) {
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+/*****************************************************************************/
+/* Main page                                                                 */
+/*****************************************************************************/
+
+/**
+ * Targets list page
+ */
+
+function upload_nodes_view() {
+
+  drupal_set_title(t('Upload files and create nodes'), PASS_THROUGH);
+
+  $item = menu_get_item();
+  $content = system_admin_menu_block($item);
+
+  return theme('upload_nodes_targets_list', array('content' => $content));
+}
+
+/**
+ * Targets list theme
+ */
+function theme_upload_nodes_targets_list($variables) {
+  $content = $variables['content'];
+  $output = '';
+
+  if ($content) {
+    $output = '<ul class="admin-list">';
+    foreach ($content as $item) {
+      $output .= '<li class="clearfix">';
+      $output .= '<span class="label">' . l($item['title'], $item['href'], $item['localized_options']) . '</span>';
+      $output .= '<div class="description">' . filter_xss_admin($item['description']) . '</div>';
+      $output .= '</li>';
+    }
+    $output .= '</ul>';
+  }
+  else {
+    $output = '<p>' . t('You have not enabled any target yet. Go to the <a href="@upload-nodes-configuration">Upload Node configuration page</a> to enable targets.', array('@upload-nodes-configuration' => url('admin/config/media/upload-nodes'))) . '</p>';
+  }
+  return $output;
+}
+
+/*****************************************************************************/
+/* Forms private functions                                                   */
+/*****************************************************************************/
+
+/**
+ * Remove unwanted fields from a form, according to settings
+ */
+
+function _upload_remove_unwanted_fields(&$form, $target, $setting, $default) {
+  // Remove fields
+  foreach (field_info_instances('node', $target['type_name']) as $key => $field_info_instance) {
+    if (isset($form[$key])) {
+      if (isset($target['settings']['fields'][$key])) {
+        if ($target['settings']['fields'][$key][$setting] == 0) {
+          $form[$key]['#access'] = FALSE;
+        }
+      }
+      else {
+        if (!$default) {
+          $form[$key]['#access'] = FALSE;
+        }
+      }
+    }
+  }
+
+  // Remove title if needed
+  if (isset($target['settings']['fields']['title'])) {
+    if ($target['settings']['fields']['title'][$setting] == 0) {
+      $form['title']['#access'] = FALSE;
+    }
+  }
+  else {
+    if (!$default) {
+      $form['title']['#access'] = FALSE;
+    }
+  }
+}
+
+/**
+ * Create upload widget for a specific target
+ */
+
+function _upload_nodes_upload_widgets($target) {
+
+  $form_element = array(
+   '#type' => 'container',
+  );
+
+  switch ($target['field_type']) {
+
+    case 'file':
+      // Upload widgets for "file" fields --> faire un container
+      $form_element['upload_nodes_files'] = array(
+       '#type' => 'plupload',
+       '#title' => t('Files to upload :'),
+      );
+
+      $field_info = field_info_field($target['field_name']);
+
+      // See file.field.inc, file_field_widget_process :
+      if ($field_info['settings']['display_field']) {
+        $form_element['upload_nodes_files_display'] = array(
+          '#type' => 'checkbox',
+          '#title' => t('Include files in display'),
+          '#value' => $field_info['settings']['display_default'],
+        );
+      }
+      else {
+        $form_element['upload_nodes_files_display'] = array(
+          '#type' => 'hidden',
+          '#value' => '1',
+        );
+      }
+      break;
+
+    case 'image':
+      // Upload widgets for "image" fields
+      $form_element['upload_nodes_files'] = array(
+       '#type' => 'plupload',
+       '#title' => t('Images to upload :'),
+       '#upload_validators' => array('file_validate_extensions' => array('jpg jpeg gif png')),
+      );
+      break;
+  }
+
+  return $form_element;
+}
+
+/*****************************************************************************/
+/* Upload phase                                                              */
+/*****************************************************************************/
+
+/**
+ * Upload form generation
+ */
+
+function upload_nodes_upload_form($form, &$form_state, $type_name, $field_name) {
+
+  if (!$target = _upload_nodes_get_target($type_name, $field_name)) {
+    drupal_not_found();
+    return;
+  }
+
+  // Create new node if needed
+  if (!isset($form_state['node'])) {
+    $node = new stdClass();
+    $node->title = NULL;
+    // TODO: check that there is no need of creating NULL fields
+    $node->type = $target['type_name'];
+    $node->language = LANGUAGE_NONE;
+    node_object_prepare($node);
+    $form_state['node'] = $node;
+  }
+  else {
+    $node = $form_state['node'];
+  }
+
+  // Page title
+  drupal_set_title(t('Create multiple !type uploading files in !field',
+      array('!type' => $target['type_label'], '!field' => $target['field_label'])), PASS_THROUGH);
+
+  // Create a node form
+  $form = node_form($form, $form_state, $node);
+
+  // Remember weight of upload field (gonna be removed)
+  $weight = $form[$target['field_name']]['#weight'];
+
+  // Remove unwanted fields from upload form
+  _upload_remove_unwanted_fields($form, $target, 'on_upload', FALSE);
+
+  // Replace file field by plupload widget
+  $form[$target['field_name']] = _upload_nodes_upload_widgets($target);
+  $form[$target['field_name']]['#weight'] = $weight;
+
+  // Remove unwanter other stuff...
+  unset($form['revision_information']);
+  unset($form['author']);
+  unset($form['options']);
+
+  // Replace actions
+  $form['actions'] = array(
+    '#type' => 'actions',
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Upload files and create nodes'),
+      '#weight' => $form['actions']['submit']['#weight'],
+      '#submit' => array('upload_nodes_upload_form_submit'),
+    ),
+  );
+
+  return $form;
+}
+
+/**
+ * Upload form submit
+ */
+
+function upload_nodes_upload_form_submit($form, &$form_state) {
+  global $user;
+
+  if (!$target = _upload_nodes_get_target($form_state['build_info']['args'][0],
+                                          $form_state['build_info']['args'][1])) {
+    drupal_not_found();
+    return;
+  }
+
+  // Remove any previous "nodes to edit"
+  _upload_nodes_clean_nodes_to_edit();
+
+  // Will there be an edit phase ?
+  $edit_phase = $target['settings']['edit phase'] &&
+    user_access('edit own ' . $target['type_name'] . ' content');
+
+  // Get field information
+  $field_info_instance = field_info_instance('node', $target['field_name'], $target['type_name']);
+  $field_info = field_info_field($target['field_name']);
+
+  // Check destination
+  $destination_dir = $field_info['settings']['uri_scheme'] . '://' .
+    trim($field_info_instance['settings']['file_directory'], '/');
+
+  if (!file_prepare_directory($destination_dir, FILE_CREATE_DIRECTORY)) {
+    watchdog('upload_nodes', 'The upload directory %directory for the file field !name could not be created or is not accessible. A newly uploaded file could not be saved in this directory as a consequence, and the upload was canceled.', array('%directory' => $destination_dir, '!name' => $field_name));
+    form_set_error('upload_nodes_upload_form', t('The file could not be uploaded.'));
+    return FALSE;
+  }
+
+  // Create a corresponding template node. This node will never be saved, it will be cloned
+  $template_node = node_form_submit_build_node($form, $form_state);
+
+  // Process files
+  foreach ($form_state['values']['upload_nodes_files'] as $uploaded_file) {
+
+    if ($uploaded_file['status'] == 'done') {
+
+      // Move file into Drupal
+      $source = $uploaded_file['tmppath'];
+      $destination = $destination_dir . $uploaded_file['name'];
+
+      $destination = file_unmanaged_move($source, $destination, FILE_EXISTS_RENAME);
+      $file = file_uri_to_object($destination);
+
+      if ($target['field_type'] == 'file') {
+        $file->display = $form_state['values']['upload_nodes_files_display'];
+      }
+      file_save($file);
+
+      // Clone the template node
+      $node = clone $template_node;
+
+      // Remove files copied from the form
+      unset($node->upload_nodes_files);
+
+      // Add current file
+      $node->{$target['field_name']}[LANGUAGE_NONE][0] = (array)$file;
+
+      // Set a title if none
+      if (!$node->title)
+        $node->title = _upload_nodes_filter_name($uploaded_file['name']);
+
+      node_save($node);
+
+      // Add node to "node to edit" list
+      if ($edit_phase) {
+        _upload_nodes_add_node_to_edit($node->nid);
+      }
+    }
+    else {
+      // TODO: move this to element validate or something
+      form_set_error('upload_nodes_upload_form', t('Upload of !file failed.',
+                        array('!file' => $uploaded_file['name'])));
+    }
+  }
+
+  // Trigger edit phase if enabled
+  if ($edit_phase) {
+    $form_state['redirect'] = _upload_nodes_base_url($target) . '/edit';
+  }
+  else {
+    $form_state['redirect'] = _upload_nodes_get_redirect_page();
+  }
+}
+
+/*****************************************************************************/
+/* Edit phase                                                                */
+/*****************************************************************************/
+
+/**
+ * Edit form generation
+ */
+
+function upload_nodes_edit_form($form, &$form_state, $type_name, $field_name) {
+  $image_style = 'medium'; // TODO: put that in settings
+
+  if (!$target = _upload_nodes_get_target($type_name, $field_name)) {
+    drupal_not_found();
+    return;
+  }
+
+  // Check that edit phase is enabled
+  if (!$target['settings']['edit phase']) {
+    drupal_not_found();
+    return;
+  }
+
+  // Fetch node if needed
+  if (!isset($form_state['node'])) {
+    // Check if there is a node to be edited
+    $node = _upload_nodes_get_next_node_to_edit();
+
+    // No more node ?
+    if (!$node) drupal_goto(_upload_nodes_get_redirect_page());
+
+    node_object_prepare($node); // Avoid an error about missing "revision" attribute
+    $form_state['node'] = $node;
+  }
+  else {
+    $node = $form_state['node'];
+  }
+
+  // Page title
+  drupal_set_title(t('Edit @type @title',
+    array('@type' => $target['type_label'], '@title' => $node->title)), PASS_THROUGH);
+
+  // Create a node form
+  $form = node_form($form, $form_state, $node);
+
+  // Keep image field
+  $field = $form[$target['field_name']][$form[$target['field_name']]['#language']][0];
+  $weight = $form[$target['field_name']]['#weight'];
+
+  // Remove unwanted fields from upload form
+  _upload_remove_unwanted_fields($form, $target, 'on_edit', TRUE);
+
+  // Add a submit handler to submit action (the node will be process by standard handler)
+  $form['actions']['submit']['#submit'][] = 'upload_nodes_edit_form_submit';
+
+  return $form;
+}
+
+/**
+ * Edit form submit (form submited by standard node_form_submit)
+ */
+
+function upload_nodes_edit_form_submit($form, &$form_state) {
+
+  // Remove the node from the "nodes to edit" list
+  _upload_nodes_remove_node_to_edit($form['#node']->nid);
+
+  // Redirect back to the edit form to edit next node
+  $form_state['redirect'] = 'upload_nodes/' . $form_state['build_info']['args'][0]
+                            . '/' . $form_state['build_info']['args'][1] . '/edit';
+}
+
+/*****************************************************************************/
+/* Temporary stuff                                                           */
+/*****************************************************************************/
+
+/**
+ * Remove all uploaded files not attached to anything
+ */
+
+function upload_nodes_clean_files() {
+  $result = '';
+  $scheme = variable_get('file_default_scheme', 'public') . '://';
+  $files = file_scan_directory($scheme, '/.*/', array('recurse' => FALSE));
+
+  foreach ($files as $props) {
+    $file = _upload_nodes_file_uri_to_object($props->uri, TRUE);
+
+    if (is_object($file)
+      and property_exists($file, 'fid')
+      and count(file_usage_list($file)) == 0
+      ) {
+      $result .= '<li>' . $props->uri . '</p>';
+      file_delete($file);
+    }
+  }
+  if ($result)
+    $result = '<p>' . t('Removed files') . ':</p><ul>' . $result . '</ul>';
+  else
+    $result = '<p>' . t('No file to remove.') . '</p>';
+  return $result;
+}
+

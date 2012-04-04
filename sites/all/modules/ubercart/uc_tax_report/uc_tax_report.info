@@ -1,0 +1,13 @@
+name = Tax Report
+description = View a report about sales tax your customers paid.
+dependencies[] = uc_reports
+dependencies[] = uc_taxes
+package = "Ubercart - core (optional)"
+core = 7.x
+
+; Information added by drupal.org packaging script on 2011-07-25
+version = "7.x-3.0-beta4"
+core = "7.x"
+project = "ubercart"
+datestamp = "1311619619"
+

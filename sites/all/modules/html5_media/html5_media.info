@@ -1,0 +1,14 @@
+name = HTML5 Media
+description = A module to begin implementation of HTML5 rich media handling in core.
+package = HTML5 Media
+core = 7.x
+files[] = html5_media.module
+files[] = html5_media.install
+files[] = html5_media.field.inc
+required = FALSE
+; Information added by drupal.org packaging script on 2012-02-20
+version = "7.x-1.0-beta1+9-dev"
+core = "7.x"
+project = "html5_media"
+datestamp = "1329697140"
+

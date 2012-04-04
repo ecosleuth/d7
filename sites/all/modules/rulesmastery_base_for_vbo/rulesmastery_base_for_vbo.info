@@ -1,0 +1,8 @@
+name = "Rules Mastery: base for VBO"
+description = "This feature contains a view that you can use for adding VBO fields. The view is used to handle Drupal points for users."
+core = "7.x"
+package = "Features"
+dependencies[] = "rulesmastery_start_setup"
+dependencies[] = "views"
+features[ctools][] = "views:views_default:3.0"
+features[views_view][] = "drupal_points"

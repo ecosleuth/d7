@@ -1,0 +1,8 @@
+name = Rules coding
+description = Start module for the Rules coding training at DrupalCon Denver
+core = 7.x
+package = Rules
+dependencies[] = entity
+dependencies[] = coder_review
+dependencies[] = devel_rules
+configure = admin/config/content/rulescoding

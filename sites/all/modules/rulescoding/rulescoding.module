@@ -1,0 +1,104 @@
+<?php
+
+/**
+ * @file
+ * Provides functions and callbacks for managing a global word list, for example
+ * for managing blacklisted words.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function rulescoding_menu() {
+  $items['admin/config/content/rulescoding'] = array(
+    'title' => 'Rules coding word list',
+    'description' => 'Manage the list of globally available words on your site.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rulescoding_page'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer_site_configuration'),
+    'menu_name' => 'management',
+  );
+
+  return $items;
+}
+
+/**
+ * Builds the form for configuring the global list of words.
+ */
+function rulescoding_page() {
+  $form['rulescoding_words'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Words to inlcude in the list'),
+    '#description' => t("The words included in this list will be available to Rules and other modules making use of the global 'site' pseudo entity."),
+    '#default_value' => implode("\r\n", variable_get('rulescoding_words', array())),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save')
+  );
+
+  return $form;
+}
+
+/**
+ * Submit function for the word list configuration page.
+ */
+function rulescoding_page_submit($form, $form_state) {
+  // Break up the list of words according to line breaks.
+  $words = explode("\r\n", $form_state['input']['rulescoding_words']);
+
+  rulescoding_save_list($words);
+  drupal_set_message(t('The words have been saved!'));
+}
+
+/**
+ * Stores the globally accessible list of words.
+ * @param $words
+ *   An array containing the words that should be stored.
+ */
+function rulescoding_save_list(array $words) {
+  // Check if the list of words contain any empty strings, and remove them.
+  $removed = 0;
+  foreach ($words as $key => $word) {
+    if (drupal_strlen($word) == 0) {
+      unset($words[$key]);
+      $removed++;
+    }
+  }
+
+  // If any strings were removed, notify the user.
+  if ($removed > 0) {
+    drupal_set_message(t(
+      'Removed @number empty word(s).',
+      array('@number' => $removed))
+    );
+  }
+
+  // Invoke the event rulescoding_event_save_words.
+  rules_invoke_event('rulescoding_event_save_words', rulescoding_get_words(), $words);
+
+  // Store the words in the variables table.
+  variable_set('rulescoding_words', $words);
+}
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function rulescoding_entity_property_info_alter(&$info) {
+   $info['site']['properties']['rulescoding_wordlist'] = array(
+      'label' => t('Global word list'),
+      'description' => t('The global word list provided by Rules coding module.'),
+      'type' => 'list<text>',
+      'getter callback' => 'rulescoding_get_words',
+    );
+}
+   
+/**
+ * Returns the list of words managed by Rules coder.
+ * @return
+ *   An array containing one word for each entry. Default to an empty array.
+ */
+function rulescoding_get_words() {
+   return variable_get('rulescoding_words', array());
+}

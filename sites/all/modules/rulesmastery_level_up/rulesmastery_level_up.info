@@ -1,0 +1,8 @@
+name = "Rules Mastery: level up functionality"
+description = "This feature contains configuration used for managing level-up on the site (video 8+9). Feel free to install and learn from it!"
+core = "7.x"
+package = "Features"
+dependencies[] = "rules"
+dependencies[] = "rulesmastery_start_setup"
+features[rules_config][] = "rules_actions_on_account_update"
+features[rules_config][] = "rules_check_for_level_up"

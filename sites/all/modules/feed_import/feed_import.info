@@ -1,0 +1,14 @@
+name = Feed Import
+description = Imports content from various file types (like XML, HTML, CSV) using XPATH
+package = Feeds
+core = 7.x
+files[] = feed_import.inc.php
+files[] = feed_import_filter.inc.php
+configure = admin/config/services/feed_import
+
+; Information added by drupal.org packaging script on 2012-01-28
+version = "7.x-2.5+5-dev"
+core = "7.x"
+project = "feed_import"
+datestamp = "1327709909"
+

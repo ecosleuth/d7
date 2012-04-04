@@ -1,0 +1,17 @@
+name = Media: Node
+description = Media stream wrapper for referenced Nodes.
+core = 7.x
+files[] = media_youtube.module
+files[] = includes/MediaNodeHandler.inc
+files[] = includes/MediaNodeStreamWrapper.inc
+files[] = includes/media_node.variables.inc
+dependencies[] = file_entity
+dependencies[] = media
+package = Media
+
+; Information added by drupal.org packaging script on 2011-11-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "media_node"
+datestamp = "1320972715"
+

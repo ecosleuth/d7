@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * @file
+ * Functions that are called on install or uninstall. Actually, only
+ * uninstall in this case.
+ */
+
+function rulescoding_uninstall() {
+  variable_del('rulescoding_words');
+}

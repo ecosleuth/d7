@@ -1,0 +1,8 @@
+.view-views-media-browser.view-display-id-browser_thumbs .views-row {
+  float: left;
+  padding: 15px;
+}
+
+.view-views-media-browser.view-display-id-browser_thumbs .views-row .media-item .label-wrapper {
+  margin-left: 0;
+}

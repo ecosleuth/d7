@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * @file
+ * Adds some administrative pages showing Rules development information.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function devel_rules_menu() {
+  $default = array(
+    'page callback' => 'devel_rules_admin',
+    'page arguments' => array(5),
+    'access arguments' => array('access devel information'),
+    'menu_name' => 'management',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items = array(
+    'admin/config/workflow/rules/devel' => array(
+      'title' => 'Rules devel info',
+      'description' => 'View some data structures used by Rules.',
+      'page arguments' => array(),
+      'weight' => 10,
+    ) + $default,
+    'admin/config/workflow/rules/devel/data' => array(
+      'title' => 'Data types',
+      'description' => 'View data types known to Rules',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => 0,
+    ) + $default,
+    'admin/config/workflow/rules/devel/entity_property' => array(
+      'title' => 'Entity properties',
+      'description' => 'View entity properties known to Rules',
+      'weight' => 2,
+    ) + $default,
+    'admin/config/workflow/rules/devel/action' => array(
+      'title' => 'Actions',
+      'description' => 'View actions known to Rules',
+      'weight' => 4,
+    ) + $default,
+    'admin/config/workflow/rules/devel/condition' => array(
+      'title' => 'Conditions',
+      'description' => 'View conditions known to Rules',
+      'weight' => 6,
+    ) + $default,
+    'admin/config/workflow/rules/devel/event' => array(
+      'title' => 'Events',
+      'description' => 'View events known to Rules',
+      'weight' => 8,
+    ) + $default,
+    'admin/config/workflow/rules/devel/components' => array(
+      'title' => 'Components',
+      'description' => 'View Rules components',
+      'weight' => 10,
+    ) + $default,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback for devel information about Rules.
+ * @param $task
+ *   Which hook to view – 'action' will for example give hook_rules_data_info,
+ *   including alter hooks. 'entity_property' is a special case.
+ */
+function devel_rules_admin($task = 'data') {
+  // As a precaution, a list of all tasks allowed to be viewed are listed here.
+  $allowed_tasks = array(
+    'entity_property',
+    'components',
+    'data',
+    'action',
+    'condition',
+    'event',
+  );
+  if (!in_array($task, $allowed_tasks)) {
+    return t('Sorry. Not allowed to show the given hook (%task).', array('%task' => $task));
+  }
+
+  // Take care of task 'property_info' first, since it is not a part of Rules
+  // and thus is a special case.
+  if ($task == 'entity_property') {
+    // Set page title and also return some data – or the page load will fail.
+    drupal_set_title(t('entity_property_info'));
+    dpm(entity_get_property_info());
+    return t("Note that the 'site' entry is not a proper entity, as known to the Entity module.");
+  }
+
+  // Another special case – fetching component information.
+  if ($task == 'components') {
+    $hook = 'rules_get_components';
+    drupal_set_title(t($hook));
+    dpm(rules_get_components());
+    return t('Showing the results of %hook (including alter hooks).', array('%hook' => $hook));
+  }
+
+  if (in_array($task, $allowed_tasks)) {
+    // Get the relevant data.
+    $hook = $task . '_info';
+    dpm(rules_fetch_data($hook));
+
+    // Set page title and also return some data – or the page load will fail.
+    $hook = 'rules_' . $hook;
+    drupal_set_title(t($hook));
+    return t('Showing the results of %hook (including alter hooks).', array('%hook' => $hook));
+  }
+}

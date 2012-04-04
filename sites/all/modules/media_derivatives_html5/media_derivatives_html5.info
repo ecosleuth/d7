@@ -1,0 +1,18 @@
+core = "7.x"
+dependencies[] = "media_derivatives"
+description = "Media derivatives HTML5 native support."
+features[ctools][] = "media_derivatives:media_derivatives_presets:1"
+features[media_derivatives_presets][] = "html5_h264"
+features[media_derivatives_presets][] = "html5_ogg"
+name = "Media derivatives HTML5"
+package = "Features"
+php = "5.2.4"
+project = "media_derivatives_html5"
+version = "7.x-1.0"
+
+; Information added by drupal.org packaging script on 2011-10-07
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "media_derivatives_html5"
+datestamp = "1317948375"
+

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Dairy Specialists 2 feature.
+ */
+
+include_once('dairy_specialists_2.features.inc');
